@@ -1,0 +1,133 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum ClaimStatus {
+    PENDING
+    CLAIMED
+    COMPLETED
+    CANCELLED
+}
+
+enum CollaboratorRole {
+    VIEWER
+    EDITOR
+}
+
+enum CollaboratorInviteStatus {
+    PENDING
+    ACCEPTED
+    DECLINED
+    EXPIRED
+}
+
+model User {
+    id              String               @id @default(cuid())
+    email           String               @unique
+    name            String?
+    password        String
+    items           Item[]
+    lists           List[]
+    collaborations  ListCollaborator[]
+    claims          Claim[]
+    sentInvites     CollaboratorInvite[] @relation("CollaboratorInviteSentBy")
+    receivedInvites CollaboratorInvite[] @relation("CollaboratorInviteReceivedBy")
+    createdAt       DateTime             @default(now())
+    updatedAt       DateTime             @updatedAt
+    categories      Category[]
+}
+
+model Category {
+    id        String   @id @default(cuid())
+    name      String
+    ownerId   String
+    owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    items     Item[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([ownerId, name])
+}
+
+model List {
+    id            String               @id @default(cuid())
+    name          String
+    ownerId       String
+    owner         User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    items         Item[]
+    shareCode     String               @unique @default(cuid())
+    collaborators ListCollaborator[]
+    invites       CollaboratorInvite[]
+    createdAt     DateTime             @default(now())
+    updatedAt     DateTime             @updatedAt
+}
+
+model Item {
+    id          String    @id @default(cuid())
+    title       String
+    description String?
+    url         String?
+    imageUrl    String?
+    price       String?
+    ownerId     String
+    owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    categoryId  String?
+    category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    listId      String?
+    list        List?     @relation(fields: [listId], references: [id], onDelete: SetNull)
+    claims      Claim[]
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+}
+
+model Claim {
+    id        String      @id @default(cuid())
+    itemId    String
+    item      Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+    userId    String
+    user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+    status    ClaimStatus @default(PENDING)
+    note      String?
+    createdAt DateTime    @default(now())
+    updatedAt DateTime    @updatedAt
+
+    @@unique([itemId, userId])
+}
+
+model ListCollaborator {
+    id        String           @id @default(cuid())
+    listId    String
+    list      List             @relation(fields: [listId], references: [id], onDelete: Cascade)
+    userId    String
+    user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    role      CollaboratorRole @default(EDITOR)
+    createdAt DateTime         @default(now())
+
+    @@unique([listId, userId])
+}
+
+model CollaboratorInvite {
+    id          String                   @id @default(cuid())
+    listId      String
+    list        List                     @relation(fields: [listId], references: [id], onDelete: Cascade)
+    invitedId   String
+    invited     User                     @relation("CollaboratorInviteReceivedBy", fields: [invitedId], references: [id], onDelete: Cascade)
+    invitedById String
+    invitedBy   User                     @relation("CollaboratorInviteSentBy", fields: [invitedById], references: [id], onDelete: Cascade)
+    role        CollaboratorRole         @default(EDITOR)
+    token       String                   @unique
+    status      CollaboratorInviteStatus @default(PENDING)
+    createdAt   DateTime                 @default(now())
+    expiresAt   DateTime
+    acceptedAt  DateTime?
+    declinedAt  DateTime?
+
+    @@unique([listId, invitedId, status])
+    @@index([listId])
+    @@index([invitedId])
+    @@index([invitedById])
+}

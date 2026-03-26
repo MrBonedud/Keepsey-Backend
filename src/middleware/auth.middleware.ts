@@ -21,20 +21,19 @@ export const requireAuth = (
   _res: Response,
   next: NextFunction,
 ) => {
-  const authHeader = req.headers.authorization;
+  const token = req.cookies?.auth_token;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(new AppError("Missing or invalid authorization header", 401));
+  if (!token) {
+    return next(new AppError("Missing authentication token", 401));
   }
 
-  const token = authHeader.slice(7);
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
     return next(new AppError("JWT_SECRET is not configured", 500));
   }
 
-  return jwt.verify(token, secret, (error, decoded) => {
+  return jwt.verify(token, secret, (error: Error | null, decoded: unknown) => {
     if (error) {
       return next(new AppError("Invalid or expired token", 401));
     }

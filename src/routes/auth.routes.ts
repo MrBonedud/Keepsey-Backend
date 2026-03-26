@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { me, signup, signin } from "../controllers/auth.controller";
+import { me, signup, signin, logout } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 import { authRateLimiter } from "../middleware/rate-limit.middleware";
 import { validate } from "../middleware/validate.middleware";
@@ -14,10 +14,11 @@ router.post(
   signup,
 );
 router.post(
-  "/signin",
+  "/login",
   authRateLimiter,
   validate({ body: signinBodySchema }),
   signin,
 );
 router.get("/me", requireAuth, me);
+router.post("/logout", logout);
 export default router;

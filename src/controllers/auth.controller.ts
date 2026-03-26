@@ -11,6 +11,15 @@ type SignupBody = {
   name?: string;
 };
 
+const setAuthCookie = (res: Response, token: string) => {
+  res.cookie("auth_token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+};
+
 export const signup = async (
   req: Request<Record<string, never>, unknown, SignupBody>,
   res: Response,
@@ -44,6 +53,17 @@ export const signup = async (
       createdAt: true,
     },
   });
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new AppError("JWT_SECRET is not configured", 500);
+  }
+
+  const token = jwt.sign({ userId: user.id, email: user.email }, secret, {
+    expiresIn: "7d",
+  });
+
+  setAuthCookie(res, token);
 
   return res.status(201).json({
     message: "User created successfully",
@@ -86,12 +106,14 @@ export const signin = async (
     expiresIn: "7d",
   });
 
+  setAuthCookie(res, token);
+
   return res.json({
     message: "Login successful",
-    token,
     user: {
       id: user.id,
       email: user.email,
+      name: user.name,
     },
   });
 };
@@ -116,4 +138,13 @@ export const me = async (req: AuthenticatedRequest, res: Response) => {
   }
 
   return res.status(200).json({ user });
+};
+
+export const logout = async (req: AuthenticatedRequest, res: Response) => {
+  res.clearCookie("auth_token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+  return res.json({ message: "Logged out successfully" });
 };
